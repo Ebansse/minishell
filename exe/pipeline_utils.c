@@ -19,10 +19,9 @@ void	exec_child_command(t_cmd *cmd, t_shell *shell,
 	setup_redirections(data, cmd_index);
 	apply_file_redirections(cmd->redir);
 	close_all_pipes(data);
-	if (is_builtin(cmd->argv[0]))
-		exit(execute_builtin(cmd, shell));
-	else
-		exit(execute_external(cmd, shell));
+	if (!cmd->argv[0] || is_builtin(cmd->argv[0]))
+		exit(run_builtin(cmd, shell));
+	exec_external_child(cmd, shell);
 }
 
 void	fork_all_commands(t_cmd *cmd_list, t_shell *shell, t_pipe_data *data)
@@ -61,10 +60,7 @@ int	wait_all_processes(t_pipe_data *data)
 	{
 		waitpid(data->pids[i], &status, 0);
 		if (i == data->nb_commands - 1)
-		{
-			if (WIFEXITED(status))
-				last_status = WEXITSTATUS(status);
-		}
+			last_status = wait_status(status);
 		i++;
 	}
 	return (last_status);

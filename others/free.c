@@ -52,6 +52,8 @@ void	free_redir(t_redir *redir)
 		redir = redir->next;
 		if (tmp->filename)
 			free(tmp->filename);
+		if (tmp->fd >= 0)
+			close(tmp->fd);
 		free(tmp);
 	}
 }

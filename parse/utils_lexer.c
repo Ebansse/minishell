@@ -83,3 +83,17 @@ char	*str_append_char(char *dest, char c)
 	free(dest);
 	return (new);
 }
+
+t_token	*drop_token(t_token **head, t_token *prev, t_token *tok)
+{
+	t_token	*next;
+
+	next = tok->next;
+	if (prev)
+		prev->next = next;
+	else
+		*head = next;
+	free(tok->value);
+	free(tok);
+	return (next);
+}

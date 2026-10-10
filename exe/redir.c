@@ -12,55 +12,29 @@
 
 #include "../minishell.h"
 
-int	open_heredoc(char *delimiter)
-{
-	char	*line;
-	int		fd;
-
-	fd = open(".heredoc_tmp", O_CREAT | O_WRONLY | O_TRUNC, 0600);
-	if (fd < 0)
-		return (-1);
-	while (1)
-	{
-		write(1, "> ", 2);
-		line = readline("");
-		if (!line || ft_strcmp(line, delimiter) == 0)
-		{
-			free(line);
-			break ;
-		}
-		write(fd, line, ft_strlen(line));
-		write(fd, "\n", 1);
-		free(line);
-	}
-	close(fd);
-	fd = open(".heredoc_tmp", O_RDONLY);
-	unlink(".heredoc_tmp");
-	return (fd);
-}
-
 int	open_redir_file(t_redir *redir)
 {
 	int	fd;
 
-	if (redir->type == T_REDIR_IN)
+	fd = -1;
+	if (redir->type == T_HEREDOC)
 	{
-		fd = open(redir->filename, O_RDONLY);
-		if (fd < 0)
-		{
-			ft_putstr_fd("minishell: ", 2);
-			perror(redir->filename);
-			return (-1);
-		}
+		fd = redir->fd;
+		redir->fd = -1;
 		return (fd);
 	}
+	if (redir->type == T_REDIR_IN)
+		fd = open(redir->filename, O_RDONLY);
 	else if (redir->type == T_REDIR_OUT)
-		return (open(redir->filename, O_WRONLY | O_CREAT | O_TRUNC, 0644));
+		fd = open(redir->filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 	else if (redir->type == T_REDIR_APPEND)
-		return (open(redir->filename, O_WRONLY | O_CREAT | O_APPEND, 0644));
-	else if (redir->type == T_HEREDOC)
-		return (open_heredoc(redir->filename));
-	return (-1);
+		fd = open(redir->filename, O_WRONLY | O_CREAT | O_APPEND, 0644);
+	if (fd < 0)
+	{
+		ft_putstr_fd("minishell: ", 2);
+		perror(redir->filename);
+	}
+	return (fd);
 }
 
 void	apply_file_redirections(t_redir *redir)
@@ -81,6 +55,15 @@ void	apply_file_redirections(t_redir *redir)
 	}
 }
 
+void	restore_std(int save_in, int save_out)
+{
+	fflush(stdout);
+	dup2(save_in, STDIN_FILENO);
+	dup2(save_out, STDOUT_FILENO);
+	close(save_in);
+	close(save_out);
+}
+
 int	apply_redirections_builtin(t_redir *redir_list, int *save_in, int *save_out)
 {
 	int	fd;
@@ -91,7 +74,7 @@ int	apply_redirections_builtin(t_redir *redir_list, int *save_in, int *save_out)
 	{
 		fd = open_redir_file(redir_list);
 		if (fd < 0)
-			return (1);
+			return (restore_std(*save_in, *save_out), 1);
 		if (redir_list->type == T_REDIR_IN || redir_list->type == T_HEREDOC)
 			dup2(fd, STDIN_FILENO);
 		else

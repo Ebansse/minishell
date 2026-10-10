@@ -22,6 +22,7 @@ void	add_redirection(t_cmd *cmd, int type, char *filename)
 		return ;
 	redir->type = type;
 	redir->filename = ft_strdup(filename);
+	redir->fd = -1;
 	redir->next = NULL;
 	if (!cmd->redir)
 		cmd->redir = redir;
@@ -47,10 +48,7 @@ char	**extract_word_tokens(t_token *tokens)
 	skip_next = 0;
 	while (tokens)
 	{
-		if (tokens->type == T_PIPE && (!tokens->next || tokens->next->type
-				== T_PIPE || i == 0))
-			return (printf(PIPE_SYNTAX_ERROR), NULL);
-		else if (tokens->type == T_PIPE)
+		if (tokens->type == T_PIPE)
 			break ;
 		if (tokens->type >= T_REDIR_IN && tokens->type <= T_HEREDOC)
 			skip_next = 1;
@@ -63,20 +61,17 @@ char	**extract_word_tokens(t_token *tokens)
 	return (argv_parts[i] = NULL, argv_parts);
 }
 
-bool	extract_redir_token(t_token *tokens, t_cmd *curr_cmd)
+void	extract_redir_token(t_token *tokens, t_cmd *curr_cmd)
 {
 	while (tokens && tokens->type != T_PIPE)
 	{
 		if (tokens->type >= T_REDIR_IN && tokens->type <= T_HEREDOC)
 		{
-			if (!tokens->next || tokens->next->type != T_WORD)
-				return (printf(INVALID_REDIR), false);
 			add_redirection(curr_cmd, tokens->type, tokens->next->value);
 			tokens = tokens->next;
 		}
 		tokens = tokens->next;
 	}
-	return (true);
 }
 
 static t_cmd	*create_cmd(t_token *tokens)
@@ -91,8 +86,7 @@ static t_cmd	*create_cmd(t_token *tokens)
 	cmd->argv = extract_word_tokens(tokens);
 	if (!cmd->argv)
 		return (free(cmd), NULL);
-	if (!extract_redir_token(tokens, cmd))
-		return (free(cmd->argv), free(cmd), NULL);
+	extract_redir_token(tokens, cmd);
 	return (cmd);
 }
 
@@ -108,7 +102,7 @@ t_cmd	*parse_tokens(t_token *tokens)
 	{
 		curr_cmd = create_cmd(tokens);
 		if (!curr_cmd)
-			return (NULL);
+			return (free_cmd(cmd_list), NULL);
 		if (!cmd_list)
 			cmd_list = curr_cmd;
 		else

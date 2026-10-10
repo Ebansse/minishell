@@ -82,13 +82,13 @@ int	ft_export(char **args, t_env **env)
 
 	if (!args[1])
 		return (ft_export_display(*env));
+	result = 0;
 	i = 1;
 	while (args[i])
 	{
-		result = process_assignment(args[i], env);
-		if (!result)
-			return (0);
+		if (!process_assignment(args[i], env))
+			result = 1;
 		i++;
 	}
-	return (1);
+	return (result);
 }

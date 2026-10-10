@@ -12,76 +12,69 @@
 
 #include "../minishell.h"
 
-static int	check_braces(char *line, int *i, int *has_braces)
+static char	*join_free(char *res, char *add)
 {
-	*has_braces = 0;
-	if (line[++(*i)] == '{')
-	{
-		*has_braces = 1;
-		(*i)++;
-		return (1);
-	}
-	return (0);
+	char	*new;
+
+	if (!res || !add)
+		return (res);
+	new = ft_strjoin(res, add);
+	free(res);
+	return (new);
 }
 
-static char	*get_env_key(char *line, int *i, int has_braces)
+static char	*expand_key(char *res, char *key, t_env *env)
 {
-	int		start_env;
-	size_t	env_len;
-
-	start_env = *i;
-	while (line[*i] && (ft_isalnum(line[*i]) || line[*i] == '_')
-		&& (!has_braces || line[*i] != '}'))
-		(*i)++;
-	env_len = *i - start_env;
-	if (env_len == 0)
-	{
-		(*i)--;
-		return (NULL);
-	}
-	return (substrdup(line, start_env, env_len));
-}
-
-static int	substitute_env_value(t_env *env, char *key, char **result)
-{
-	char	*val;
-	char	*tmp;
-
 	if (!key)
-	{
-		*result = str_append_char(*result, '$');
-		return (0);
-	}
-	val = get_env_value(env, key);
-	if (val)
-	{
-		tmp = *result;
-		*result = ft_strjoin(*result, val);
-		if (tmp)
-			free(tmp);
-	}
-	return (1);
+		return (free(res), NULL);
+	res = join_free(res, get_env_value(env, key));
+	free(key);
+	return (res);
 }
 
-int	handle_env_var(t_env *env, char *line, int *i, char **result)
+static char	*expand_name(char *word, int *i, char *res, t_env *env)
 {
-	char	*key;
-	int		has_braces;
+	int	start;
 
-	check_braces(line, i, &has_braces);
-	key = get_env_key(line, i, has_braces);
-	if (!substitute_env_value(env, key, result))
-		return (0);
-	free(key);
-	if (has_braces)
+	start = *i + 1;
+	while (ft_isalnum(word[*i + 1]) || word[*i + 1] == '_')
+		(*i)++;
+	return (expand_key(res, substrdup(word, start, *i - start + 1), env));
+}
+
+static char	*expand_braces(char *word, int *i, char *res, t_env *env)
+{
+	int	start;
+	int	end;
+
+	start = *i + 2;
+	end = start;
+	while (ft_isalnum(word[end]) || word[end] == '_')
+		end++;
+	if (word[end] != '}' || end == start)
+		return (str_append_char(res, '$'));
+	*i = end;
+	return (expand_key(res, substrdup(word, start, end - start), env));
+}
+
+/* Expands the $ at word[*i] into res; *i ends on the last consumed char. */
+char	*expand_dollar(char *word, int *i, char *res, t_shell *shell)
+{
+	char	*status;
+	char	next;
+
+	next = word[*i + 1];
+	if (next == '?')
 	{
-		if (line[*i] != '}')
-		{
-			ft_putstr_fd("minishell: syntax error: missing closing brace\n", 2);
-			return (0);
-		}
+		status = ft_itoa(shell->last_status);
+		res = join_free(res, status);
+		free(status);
+		(*i)++;
+		return (res);
 	}
-	else
-		(*i)--;
-	return (1);
+	if (next == '{')
+		return (expand_braces(word, i, res, shell->env));
+	if (ft_isalpha(next) || next == '_')
+		return (expand_name(word, i, res, shell->env));
+	return (str_append_char(res, '$'));
 }

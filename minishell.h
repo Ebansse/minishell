@@ -26,6 +26,7 @@
 # include <readline/readline.h>
 # include <readline/history.h>
 # include <dirent.h>
+# include <sys/stat.h>
 
 # define PROMPT_PRINT "\001\033[35m\002minishell $ \001\033[0m\002"
 # define MEMORY_ERROR "Memory allocation error\n"
@@ -38,7 +39,7 @@
 # define PIPE_SYNTAX_ERROR "Syntax error near unexpected token `|'\n"
 # define MAX_COMMANDS 100
 # define MAX_PIPES 99
-# define HEREDOC_TMP_PREFIX ".heredoc_tmp_"
+# define HEREDOC_TMP "/tmp/.minishell_heredoc"
 
 extern volatile sig_atomic_t	g_signal_received;
 
@@ -70,6 +71,7 @@ typedef struct s_redir
 {
 	int				type;
 	char			*filename;
+	int				fd;
 	struct s_redir	*next;
 }	t_redir;
 
@@ -116,23 +118,29 @@ void	set_env_value(t_env **env, char *key, char *value);
 char	**env_list_to_array(t_env *env);
 
 /* Lexer and parser */
-t_token	*lexer(char *line);
-int		handle_env_var(t_env *env, char *line, int *i, char **result);
-int		handle_single_quote(char *line, int *i, char **result);
+t_token	*lexer(char *line, t_shell *shell);
+int		check_syntax(t_token *tok, t_shell *shell);
+int		expand_tokens(t_token **head, t_shell *shell);
+char	*expand_word(char *word, t_shell *shell);
+char	*expand_dollar(char *word, int *i, char *res, t_shell *shell);
 int		count_word_tokens(t_token *head);
 t_token	*new_token(char *value, t_token_type type);
 void	add_token(t_token **head, t_token *new);
+t_token	*drop_token(t_token **head, t_token *prev, t_token *tok);
 char	*str_append_char(char *dest, char c);
 t_cmd	*parse_tokens(t_token *tokens);
 
 /* Command execution */
 void	execute_commands(t_cmd *cmd, t_shell *shell);
 int		is_builtin(char *cmd);
+int		run_builtin(t_cmd *cmd, t_shell *shell);
 int		execute_builtin(t_cmd *cmd, t_shell *shell);
 int		execute_external(t_cmd *cmd, t_shell *shell);
+void	exec_external_child(t_cmd *cmd, t_shell *shell);
+int		command_error(char *cmd, t_env *env);
+int		wait_status(int status);
 char	*find_command_path(char *cmd, t_env *env);
 char	*search_in_paths(char *cmd, char **paths);
-int		pid_cas(t_cmd *cmd, char **env_array, char *command_path);
 
 /* Pipeline execution */
 int		execute_pipeline(t_cmd *cmd_list, t_shell *shell);
@@ -146,10 +154,11 @@ void	fork_all_commands(t_cmd *cmd_list, t_shell *shell, t_pipe_data *data);
 int		wait_all_processes(t_pipe_data *data);
 
 /* Heredoc management */
-int		open_heredoc(char *delimiter);
+int		prepare_heredocs(t_cmd *cmd, t_shell *shell);
 
 /* Redirections */
 void	apply_file_redirections(t_redir *redir);
+void	restore_std(int save_in, int save_out);
 int		apply_redirections_builtin(t_redir *redir_list, int *save_in,
 			int *save_out);
 
@@ -173,4 +182,4 @@ void	ft_quit(int exit_code);
 void	prompt_loop(t_shell *shell);
 void	print_cmd(t_cmd *cmd);
 
-#endif
+#endif

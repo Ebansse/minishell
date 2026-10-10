@@ -12,67 +12,21 @@
 
 #include "minishell.h"
 
-void	append_status_to_result(char **result, int last_status, int *i)
-{
-	char	*status_str;
-	char	*new_result;
-
-	status_str = ft_itoa(last_status);
-	if (!status_str)
-		return ;
-	new_result = ft_strjoin(*result, status_str);
-	free(*result);
-	free(status_str);
-	*result = new_result;
-	(*i)++;
-}
-
-char	*expand_variables(t_env *env, char *line, t_shell *shell)
-{
-	char	*result;
-	int		i;
-
-	result = NULL;
-	i = -1;
-	while (line[++i])
-	{
-		if (line[i] == 39)
-		{
-			if (!handle_single_quote(line, &i, &result))
-				return (NULL);
-		}
-		else if (line[i] == '$' && line[i + 1] == '?' )
-			append_status_to_result(&result, shell->last_status, &i);
-		else if (line[i] == '$' && line[i + 1] && (ft_isalpha(line[i + 1])
-				|| line[i + 1] == '_' || line[i + 1] == '{'))
-		{
-			if (!handle_env_var(env, line, &i, &result))
-				return (free(line), NULL);
-		}
-		else
-			result = str_append_char(result, line[i]);
-	}
-	free (line);
-	return (result);
-}
-
 int	process_line(char *line, t_shell *shell)
 {
 	t_cmd	*cmd;
 	t_token	*lst;
-	char	*expand;
 
-	expand = expand_variables(shell->env, line, shell);
-	if (!expand)
+	lst = lexer(line, shell);
+	if (!lst)
 		return (0);
-	lst = lexer(expand);
+	if (!check_syntax(lst, shell) || !expand_tokens(&lst, shell))
+		return (free_tokens(lst), 0);
 	cmd = parse_tokens(lst);
-	if (cmd)
-	{
-		setup_signals(1);
-		execute_commands(cmd, shell);
-	}
 	free_tokens(lst);
+	setup_signals(1);
+	if (cmd && prepare_heredocs(cmd, shell) == 0)
+		execute_commands(cmd, shell);
 	free_cmd(cmd);
 	return (1);
 }

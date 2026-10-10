@@ -23,9 +23,10 @@ SRCS_BUILTINS 	=	builtins/ft_env.c builtins/ft_echo.c \
 					builtins/export_utils.c
 
 SRCS_ENV  = env/env_init.c env/env_utils.c 
-SRCS_PARSE = parse/lexer.c parse/parser.c parse/utils_lexer.c parse/var.c
+SRCS_PARSE = parse/lexer.c parse/parser.c parse/utils_lexer.c parse/var.c parse/expand.c
 SRCS_OTHERS  = others/free.c others/signals.c others/utils.c
-SRCS_EXE = exe/builtin.c exe/extern.c exe/pipeline_utils.c exe/pipeline.c exe/redir.c
+SRCS_EXE = exe/builtin.c exe/extern.c exe/pipeline_utils.c exe/pipeline.c exe/redir.c \
+			exe/heredoc.c exe/extern_utils.c
 
 OBJS = $(SRCS:.c=.o) $(SRCS_BUILTINS:.c=.o) $(SRCS_ENV:.c=.o) $(SRCS_EXE:.c=.o) $(SRCS_PARSE:.c=.o) $(SRCS_OTHERS:.c=.o)
 NAME = minishell
@@ -62,4 +63,4 @@ fclean: clean
 make_libs:
 	make -C libft
 
-re: fclean all
+re: fclean all
